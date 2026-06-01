@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Nuestras Ubicaciones — Consultorio</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+
+  <style>
+    /* ─── RESET & BASE ─── */
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+    :root {
+      --blue:       #3a8fc4;
+      --blue-pale:  #e8f4fb;
+      --blue-mid:   #5aaee0;
+      --ink:        #1e2f3d;
+      --ink-mid:    #3d5a72;
+      --ink-soft:   #7a96aa;
+      --bg:         #f4f8fb;
+      --white:      #ffffff;
+      --border:     #d0e4f0;
+      --shadow:     rgba(58,143,196,.12);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      font-family: 'DM Sans', sans-serif;
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── WRAPPER ─── */
+    .wrapper {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 0 0 40px;
+      min-height: 100vh;
+    }
+
+    /* ─── HEADER ─── */
+    .site-header {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      padding: 22px 20px 18px;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      box-shadow: 0 2px 12px var(--shadow);
+    }
+    .site-header .eyebrow {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: var(--blue);
+      margin-bottom: 5px;
+    }
+    .site-header h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: 22px;
+      font-weight: 400;
+      color: var(--ink);
+      line-height: 1.1;
+    }
+    .site-header h1 em {
+      font-style: italic;
+      color: var(--blue);
+    }
+    .site-header .sub {
+      margin-top: 5px;
+      font-size: 11px;
+      color: var(--ink-soft);
+      font-weight: 300;
+    }
+
+    /* ─── LOCATION COUNT BADGE ─── */
+    .count-strip {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      padding: 12px 20px 0;
+    }
+    .count-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--border);
+      transition: background .3s;
+    }
+    .count-dot.active { background: var(--blue); }
+
+    /* ─── ACCORDION LIST ─── */
+    .accordion-list {
+      padding: 14px 16px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* ─── ACCORDION ITEM ─── */
+    .acc-item {
+      background: var(--white);
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      box-shadow: 0 2px 10px var(--shadow);
+      transition: box-shadow .25s;
+    }
+    .acc-item.open {
+      box-shadow: 0 6px 24px rgba(58,143,196,.18);
+      border-color: var(--blue-mid);
+    }
+
+    /* ─── ACCORDION TRIGGER ─── */
+    .acc-trigger {
+      width: 100%;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 15px 16px;
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      text-align: left;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .acc-icon {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      background: var(--blue-pale);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-size: 18px;
+      transition: background .25s;
+    }
+    .acc-item.open .acc-icon {
+      background: var(--blue);
+    }
+    .acc-item.open .acc-icon svg path,
+    .acc-item.open .acc-icon svg circle,
+    .acc-item.open .acc-icon svg rect {
+      fill: white;
+    }
+
+    .acc-text { flex: 1; }
+    .acc-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink);
+      line-height: 1.2;
+    }
+    .acc-item.open .acc-name { color: var(--blue); }
+    .acc-addr {
+      font-size: 11px;
+      color: var(--ink-soft);
+      font-weight: 300;
+      margin-top: 2px;
+      line-height: 1.4;
+    }
+
+    .acc-arrow {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: transform .3s, background .25s;
+    }
+    .acc-item.open .acc-arrow {
+      transform: rotate(180deg);
+      background: var(--blue-pale);
+    }
+    .acc-arrow svg { width:12px; height:12px; }
+
+    /* ─── ACCORDION BODY ─── */
+    .acc-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height .38s cubic-bezier(.4,0,.2,1);
+    }
+    .acc-item.open .acc-body {
+      max-height: 400px;
+    }
+
+    /* ─── MAP CONTAINER ─── */
+    .map-wrap {
+      padding: 0 14px 14px;
+    }
+    .map-container {
+      width: 100%;
+      height: 220px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    /* ─── INFO ROW BELOW MAP ─── */
+    .info-row {
+      display: flex;
+      gap: 8px;
+      padding: 10px 14px 14px;
+      border-top: 1px solid var(--border);
+    }
+    .info-chip {
+      flex: 1;
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 9px 10px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      text-decoration: none;
+      border: 1px solid var(--border);
+      transition: background .2s, border-color .2s;
+    }
+    .info-chip:active { background: var(--blue-pale); border-color: var(--blue); }
+    .info-chip .chip-icon { font-size:14px; flex-shrink:0; }
+    .info-chip .chip-text { font-size:10px; font-weight:500; color:var(--ink-mid); line-height:1.3; }
+    .info-chip .chip-sub  { font-size:9px; color:var(--ink-soft); font-weight:300; }
+
+    /* ─── LEAFLET OVERRIDES ─── */
+    .leaflet-control-zoom {
+      border: none !important;
+      box-shadow: 0 2px 8px rgba(0,0,0,.12) !important;
+      border-radius: 8px !important;
+      overflow: hidden;
+    }
+    .leaflet-control-zoom a {
+      border-radius: 0 !important;
+      font-size: 16px !important;
+      line-height: 26px !important;
+      width: 28px !important;
+      height: 28px !important;
+      color: var(--ink-mid) !important;
+    }
+    .leaflet-control-attribution {
+      font-size: 8px !important;
+    }
+
+    /* custom pin */
+    .custom-pin {
+      width: 32px; height: 32px;
+      background: var(--blue);
+      border: 3px solid white;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      box-shadow: 0 3px 10px rgba(58,143,196,.4);
+    }
+    .custom-pin::after {
+      content:'';
+      position:absolute;
+      width:10px; height:10px;
+      background:white; border-radius:50%;
+      top:50%; left:50%;
+      transform:translate(-50%,-50%);
+    }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- HEADER -->
+  <header class="site-header">
+    <p class="eyebrow">Psicología Clínica · CDMX</p>
+    <h1>Nuestras <em>Ubicaciones</em></h1>
+    <p class="sub">4 consultorios · Elige el más cercano a ti</p>
+  </header>
+
+  <!-- DOTS -->
+  <div class="count-strip" id="dots">
+    <div class="count-dot" data-i="0"></div>
+    <div class="count-dot" data-i="1"></div>
+    <div class="count-dot" data-i="2"></div>
+    <div class="count-dot" data-i="3"></div>
+  </div>
+
+  <!-- ACCORDIONS -->
+  <div class="accordion-list" id="accList">
+
+    <!-- 1. REFORMA -->
+    <div class="acc-item" data-index="0">
+      <button class="acc-trigger" aria-expanded="false">
+        <div class="acc-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#3a8fc4"/>
+            <circle cx="12" cy="9" r="2.5" fill="white"/>
+          </svg>
+        </div>
+        <div class="acc-text">
+          <p class="acc-name">Reforma</p>
+          <p class="acc-addr">Paseo de la Reforma 195, Renacimiento, Cuauhtémoc</p>
+        </div>
+        <div class="acc-arrow">
+          <svg viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="#7a96aa" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+      </button>
+      <div class="acc-body">
+        <div class="map-wrap">
+          <div class="map-container" id="map-0"></div>
+        </div>
+        <div class="info-row">
+          <a class="info-chip" href="https://www.openstreetmap.org/?mlat=19.4312&mlon=-99.1583#map=17/19.4312/-99.1583" target="_blank">
+            <span class="chip-icon">🗺</span>
+            <div><p class="chip-text">Ver en mapa</p><p class="chip-sub">OpenStreetMap</p></div>
+          </a>
+          <a class="info-chip" href="https://maps.google.com/?q=19.4312,-99.1583" target="_blank">
+            <span class="chip-icon">📍</span>
+            <div><p class="chip-text">Cómo llegar</p><p class="chip-sub">Google Maps</p></div>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. DEL VALLE -->
+    <div class="acc-item" data-index="1">
+      <button class="acc-trigger" aria-expanded="false">
+        <div class="acc-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#3a8fc4"/>
+            <circle cx="12" cy="9" r="2.5" fill="white"/>
+          </svg>
+        </div>
+        <div class="acc-text">
+          <p class="acc-name">Del Valle</p>
+          <p class="acc-addr">Nicolás San Juan 1319, Del Valle Sur, Benito Juárez</p>
+        </div>
+        <div class="acc-arrow">
+          <svg viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="#7a96aa" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+      </button>
+      <div class="acc-body">
+        <div class="map-wrap">
+          <div class="map-container" id="map-1"></div>
+        </div>
+        <div class="info-row">
+          <a class="info-chip" href="https://www.openstreetmap.org/?mlat=19.3734&mlon=-99.1628#map=17/19.3734/-99.1628" target="_blank">
+            <span class="chip-icon">🗺</span>
+            <div><p class="chip-text">Ver en mapa</p><p class="chip-sub">OpenStreetMap</p></div>
+          </a>
+          <a class="info-chip" href="https://maps.google.com/?q=19.3734,-99.1628" target="_blank">
+            <span class="chip-icon">📍</span>
+            <div><p class="chip-text">Cómo llegar</p><p class="chip-sub">Google Maps</p></div>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. POLANCO / ANZURES -->
+    <div class="acc-item" data-index="2">
+      <button class="acc-trigger" aria-expanded="false">
+        <div class="acc-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#3a8fc4"/>
+            <circle cx="12" cy="9" r="2.5" fill="white"/>
+          </svg>
+        </div>
+        <div class="acc-text">
+          <p class="acc-name">Polanco / Anzures</p>
+          <p class="acc-addr">Leibnitz 11, Anzures, Miguel Hidalgo</p>
+        </div>
+        <div class="acc-arrow">
+          <svg viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="#7a96aa" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+      </button>
+      <div class="acc-body">
+        <div class="map-wrap">
+          <div class="map-container" id="map-2"></div>
+        </div>
+        <div class="info-row">
+          <a class="info-chip" href="https://www.openstreetmap.org/?mlat=19.4285&mlon=-99.1752#map=17/19.4285/-99.1752" target="_blank">
+            <span class="chip-icon">🗺</span>
+            <div><p class="chip-text">Ver en mapa</p><p class="chip-sub">OpenStreetMap</p></div>
+          </a>
+          <a class="info-chip" href="https://maps.google.com/?q=19.4285,-99.1752" target="_blank">
+            <span class="chip-icon">📍</span>
+            <div><p class="chip-text">Cómo llegar</p><p class="chip-sub">Google Maps</p></div>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. SATÉLITE -->
+    <div class="acc-item" data-index="3">
+      <button class="acc-trigger" aria-expanded="false">
+        <div class="acc-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#3a8fc4"/>
+            <circle cx="12" cy="9" r="2.5" fill="white"/>
+          </svg>
+        </div>
+        <div class="acc-text">
+          <p class="acc-name">Satélite</p>
+          <p class="acc-addr">Av. Vía Adolfo López Mateos 45, Valle de Santa Mónica, Tlalnepantla</p>
+        </div>
+        <div class="acc-arrow">
+          <svg viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="#7a96aa" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+      </button>
+      <div class="acc-body">
+        <div class="map-wrap">
+          <div class="map-container" id="map-3"></div>
+        </div>
+        <div class="info-row">
+          <a class="info-chip" href="https://www.openstreetmap.org/?mlat=19.5278&mlon=-99.2294#map=17/19.5278/-99.2294" target="_blank">
+            <span class="chip-icon">🗺</span>
+            <div><p class="chip-text">Ver en mapa</p><p class="chip-sub">OpenStreetMap</p></div>
+          </a>
+          <a class="info-chip" href="https://maps.google.com/?q=19.5278,-99.2294" target="_blank">
+            <span class="chip-icon">📍</span>
+            <div><p class="chip-text">Cómo llegar</p><p class="chip-sub">Google Maps</p></div>
+          </a>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /accordion-list -->
+</div><!-- /wrapper -->
+
+<script>
+  // ─── LOCATION DATA ───
+  const locations = [
+    { id: 0, coords: [19.4312, -99.1583], label: 'Reforma',         addr: 'Paseo de la Reforma 195, Renacimiento' },
+    { id: 1, coords: [19.3734, -99.1628], label: 'Del Valle',       addr: 'Nicolás San Juan 1319, Del Valle Sur' },
+    { id: 2, coords: [19.4285, -99.1752], label: 'Polanco/Anzures', addr: 'Leibnitz 11, Anzures' },
+    { id: 3, coords: [19.5278, -99.2294], label: 'Satélite',        addr: 'Vía Adolfo López Mateos 45, Tlalnepantla' },
+  ];
+
+  // Track initialized maps
+  const maps = {};
+
+  // ─── CUSTOM PIN ICON ───
+  const pinIcon = L.divIcon({
+    className: '',
+    html: `<div class="custom-pin"></div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -36],
+  });
+
+  // ─── INIT MAP for a given location ───
+  function initMap(loc) {
+    if (maps[loc.id]) return; // already initialized
+
+    const map = L.map('map-' + loc.id, {
+      center: loc.coords,
+      zoom: 16,
+      zoomControl: true,
+      scrollWheelZoom: false,
+      dragging: true,
+      attributionControl: true,
+    });
+
+    // CartoDB Positron — clean, light, no color noise
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 19,
+    }).addTo(map);
+
+    // Pin + popup
+    L.marker(loc.coords, { icon: pinIcon })
+      .addTo(map)
+      .bindPopup(`<strong style="font-size:12px;color:#1e2f3d">${loc.label}</strong><br><span style="font-size:10px;color:#7a96aa">${loc.addr}</span>`, {
+        maxWidth: 180,
+        className: 'custom-popup',
+      })
+      .openPopup();
+
+    maps[loc.id] = map;
+  }
+
+  // ─── ACCORDION LOGIC ───
+  const items  = document.querySelectorAll('.acc-item');
+  const dots   = document.querySelectorAll('.count-dot');
+
+  items.forEach((item) => {
+    const btn  = item.querySelector('.acc-trigger');
+    const body = item.querySelector('.acc-body');
+    const idx  = parseInt(item.dataset.index);
+
+    btn.addEventListener('click', () => {
+      const isOpen = item.classList.contains('open');
+
+      // Close all
+      items.forEach(i => {
+        i.classList.remove('open');
+        i.querySelector('.acc-trigger').setAttribute('aria-expanded', 'false');
+      });
+      dots.forEach(d => d.classList.remove('active'));
+
+      // Open clicked (if it was closed)
+      if (!isOpen) {
+        item.classList.add('open');
+        btn.setAttribute('aria-expanded', 'true');
+        dots[idx].classList.add('active');
+
+        // Init map after transition starts (brief delay for height animation)
+        setTimeout(() => {
+          initMap(locations[idx]);
+          // Scroll item into view smoothly
+          setTimeout(() => {
+            item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }, 100);
+        }, 80);
+      }
+    });
+  });
+</script>
+</body>
+</html>
